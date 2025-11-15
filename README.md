@@ -15,12 +15,10 @@ Malli や HoneySQL が示す「それはただのデータだ」という美学�
   (:require [app.adtworld :as adt]))
 
 (def Maybe
-  (adt/adt {:name :Maybe
-            :params [:a]
-            :constructors
-            {:Nothing []
-             :Just {:fields [:value]
-                    :doc "値を包む"}}}))
+  (adt/data
+    [:Maybe {:params ['a]}
+     [:Nothing]
+     [:Just "値を包む" :value]]))
 
 (def maybe-ten (adt/value Maybe :Just 10))
 
@@ -32,16 +30,17 @@ Malli や HoneySQL が示す「それはただのデータだ」という美学�
 
 ### ADT の定義
 
-`adt/adt` は与えられた定義を検証して正規化します。コンストラクタは `[:field …]` というベクタか、`{:fields [...]}` を含むマップ（任意のメタ情報を付加可能）として書けます。戻り値は `::adt` マーカーと正規化済みのコンストラクタ情報を持つマップです。
+`adt/data` は Haskell の `data` 宣言に近い簡潔な記法です。最初の要素が型名、続く文字列が doc、さらにオプションのマップで `:params` やその他のメタ情報を設定し、残りを `[Constructor ...fields]` という形のコンストラクタで列挙します。フィールド名はキーワード、または `'value` のように引用したシンボルで書け、自動でキーワード化されます。
 
 ```clojure
 (def Tree
-  (adt/adt {:name :Tree
-            :constructors
-            [[:Leaf {:fields [:value]}]
-             [:Branch {:fields [:left :right]
-                       :doc "2 分木の節"}]]}))
+  (adt/data
+    [:Tree "2 分木"
+     [:Leaf :value]
+     [:Branch {:db/tag :branch} :left :right]]))
 ```
+
+よりリッチな制御が必要なら、従来どおり `adt/adt` にマップを渡して定義しても構いません。
 
 ### 値とのやりとり
 

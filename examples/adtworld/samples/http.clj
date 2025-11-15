@@ -3,13 +3,13 @@
   (:require [app.adtworld :as adt]))
 
 (def HttpResult
-  (adt/adt {:name :HttpResult
-            :constructors
-            {:Ok {:fields [:body]}
-             :Created {:fields [:location :body]}
-             :Redirect {:fields [:location]}
-             :ClientError {:fields [:status :message :details]}
-             :ServerError {:fields [:status :message :info]}}}))
+  (adt/data
+    [:HttpResult
+     [:Ok :body]
+     [:Created :location :body]
+     [:Redirect :location]
+     [:ClientError :status :message :details]
+     [:ServerError :status :message :info]]))
 
 (defn ok [body] (adt/value HttpResult :Ok {:body body}))
 (defn created [location body] (adt/value HttpResult :Created {:location location :body body}))

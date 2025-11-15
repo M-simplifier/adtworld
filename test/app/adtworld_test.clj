@@ -3,13 +3,10 @@
             [app.adtworld :as sut]))
 
 (def maybe
-  (sut/adt {:name :Maybe
-            :params [:a]
-            :constructors
-            {:Nothing []
-             :Just {:fields [:value]
-                    :doc "値を包む"
-                    :db/tag :just}}}))
+  (sut/data
+    [:Maybe {:params ['a]}
+     [:Nothing]
+     [:Just "値を包む" {:db/tag :just} 'value]]))
 
 (deftest adt-definition
   (testing "正規化でメタ情報が保たれる"

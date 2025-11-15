@@ -3,13 +3,10 @@
   (:require [app.adtworld :as adt]))
 
 (def Tree
-  (adt/adt {:name :Tree
-            :doc "節は任意ラベル、葉は任意値。children には Tree のベクタが入る。"
-            :constructors
-            {:Leaf {:fields [:value]
-                    :doc "値のみを持つ葉"}
-             :Node {:fields [:label :children]
-                    :doc "ラベル付きの節。children は Tree のベクタ"}}}))
+  (adt/data
+    [:Tree "節は任意ラベル、葉は任意値。children には Tree のベクタが入る。"
+     [:Leaf "値のみを持つ葉" :value]
+     [:Node "ラベル付きの節。children は Tree のベクタ" :label :children]]))
 
 (defn leaf [value]
   (adt/value Tree :Leaf {:value value}))

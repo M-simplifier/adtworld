@@ -8,6 +8,15 @@
 (def ^:private fields-key ::fields)
 (def ^:private not-found ::not-found)
 
+(defn- as-keyword
+  "記法の糖衣から受け取った記号をキーワードに揃える。"
+  [x context]
+  (cond
+    (keyword? x) x
+    (symbol? x) (keyword x)
+    :else (throw (ex-info (str context " はキーワードかシンボルである必要があります")
+                          {::value x}))))
+
 (defn type-name
   "値マップが持っている ADT のキーワードを返す。"
   [value]
@@ -87,6 +96,61 @@
            :constructors (into {} (map-indexed normalize-constructor entries))
            :order (mapv first entries)
            :doc doc)))
+
+(defn data
+  "Haskell の `data` 宣言に寄せた、より簡潔な定義記法。
+
+  例:
+
+    (data
+      [:Maybe \"Maybe 型\"
+       {:params [:a]}
+       [:Nothing]
+       [:Just \"値を包む\" value]])
+
+  ベクタの 2 要素目に文字列を書けば型の doc、それに続けてマップを書けば
+  `:params` やその他のメタ情報を設定できる。残りはコンストラクタ定義で、
+  `[Constructor ...fields]` の形をとる。コンストラクタ内でも同様に冒頭に
+  doc 文字列とメタ情報マップを挿入できる。フィールド名はキーワードかシンボルで記述し、
+  すべて自動的にキーワードへ変換される。"
+  [form]
+  (when-not (sequential? form)
+    (throw (ex-info "data 記法はシーケンスで与えてください" {::form form})))
+  (let [[name & tail] form
+        name* (as-keyword name "型名")
+        [doc tail] (if (string? (first tail))
+                     [(first tail) (rest tail)]
+                     [nil tail])
+        [options tail] (if (map? (first tail))
+                         [(first tail) (rest tail)]
+                         [{} tail])
+        {:keys [params] :as options*} options
+        params* (when params (mapv #(as-keyword % "型パラメータ") params))
+        constructors tail]
+    (when (empty? constructors)
+      (throw (ex-info "コンストラクタを 1 つ以上定義してください" {::form form})))
+    (letfn [(parse-constructor [ctor-form]
+              (when-not (sequential? ctor-form)
+                (throw (ex-info "コンストラクタの記述はベクタ/シーケンスである必要があります"
+                                {::constructor ctor-form})))
+              (let [[ctor & body] ctor-form
+                    ctor* (as-keyword ctor "コンストラクタ名")
+                    [c-doc body] (if (string? (first body))
+                                   [(first body) (rest body)]
+                                   [nil body])
+                    [meta body] (if (map? (first body))
+                                  [(first body) (rest body)]
+                                  [{} body])
+                    fields (mapv #(as-keyword % "フィールド名") body)]
+                [ctor* (cond-> {:fields fields}
+                         c-doc (assoc :doc c-doc)
+                         (seq meta) (merge meta))]))]
+      (adt (-> options*
+               (dissoc :params :doc :constructors)
+               (assoc :name name*
+                      :doc (or doc (:doc options*))
+                      :params params*
+                      :constructors (mapv parse-constructor constructors)))))))
 
 (defn value
   "ADT 定義とコンストラクタキーワードから値を生成する。

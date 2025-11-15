@@ -3,15 +3,14 @@
   (:require [app.adtworld :as adt]))
 
 (def Ticket
-  (adt/adt {:name :Ticket
-            :doc "サポートチケットのライフサイクル。"
-            :constructors
-            {:Draft {:fields [:id :summary :reporter]}
-             :Assigned {:fields [:id :summary :reporter :assignee]}
-             :WaitingOnCustomer {:fields [:id :summary :reporter :assignee :requested-at]}
-             :Resolved {:fields [:id :summary :reporter :assignee :resolution]}
-             :Closed {:fields [:id :summary :reporter :assignee :resolution :closed-at]}
-             :Cancelled {:fields [:id :summary :reporter :reason]}}}))
+  (adt/data
+    [:Ticket "サポートチケットのライフサイクル。"
+     [:Draft :id :summary :reporter]
+     [:Assigned :id :summary :reporter :assignee]
+     [:WaitingOnCustomer :id :summary :reporter :assignee :requested-at]
+     [:Resolved :id :summary :reporter :assignee :resolution]
+     [:Closed :id :summary :reporter :assignee :resolution :closed-at]
+     [:Cancelled :id :summary :reporter :reason]]))
 
 (defn draft [id summary reporter]
   (adt/value Ticket :Draft {:id id :summary summary :reporter reporter}))
