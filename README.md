@@ -106,6 +106,4 @@ clojure -M:test -m cognitect.test-runner
 
 ## ライセンス
 
-Copyright © 2025 Masaya
-
-ライセンスは `deps-new` デフォルトの Eclipse Public License 1.0 です。必要に応じて好きなライセンスに差し替えてください。
+MIT License © 2025 Masaya
