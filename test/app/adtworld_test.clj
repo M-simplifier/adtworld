@@ -2,11 +2,12 @@
   (:require [clojure.test :refer [deftest is testing]]
             [app.adtworld :as sut]))
 
-(def maybe
-  (sut/data
-    [:Maybe {:params ['a]}
-     [:Nothing]
-     [:Just "値を包む" {:db/tag :just} 'value]]))
+(sut/defdata Maybe
+  {:params [a]}
+  [:Nothing]
+  [:Just "値を包む" {:db/tag :just} value])
+
+(def maybe Maybe)
 
 (deftest adt-definition
   (testing "正規化でメタ情報が保たれる"

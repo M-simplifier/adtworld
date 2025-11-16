@@ -2,15 +2,14 @@
   "ヘルプデスクのチケット状態を ADT で表現し、遷移ロジックをデータ駆動で書く例。"
   (:require [app.adtworld :as adt]))
 
-(def Ticket
-  (adt/data
-    [:Ticket "サポートチケットのライフサイクル。"
-     [:Draft :id :summary :reporter]
-     [:Assigned :id :summary :reporter :assignee]
-     [:WaitingOnCustomer :id :summary :reporter :assignee :requested-at]
-     [:Resolved :id :summary :reporter :assignee :resolution]
-     [:Closed :id :summary :reporter :assignee :resolution :closed-at]
-     [:Cancelled :id :summary :reporter :reason]]))
+(adt/defdata Ticket
+  "サポートチケットのライフサイクル。"
+  [:Draft id summary reporter]
+  [:Assigned id summary reporter assignee]
+  [:WaitingOnCustomer id summary reporter assignee requested-at]
+  [:Resolved id summary reporter assignee resolution]
+  [:Closed id summary reporter assignee resolution closed-at]
+  [:Cancelled id summary reporter reason])
 
 (defn draft [id summary reporter]
   (adt/value Ticket :Draft {:id id :summary summary :reporter reporter}))

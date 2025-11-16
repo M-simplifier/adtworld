@@ -14,11 +14,10 @@ Malli や HoneySQL が示す「それはただのデータだ」という美学�
 (ns demo
   (:require [app.adtworld :as adt]))
 
-(def Maybe
-  (adt/data
-    [:Maybe {:params ['a]}
-     [:Nothing]
-     [:Just "値を包む" :value]]))
+(adt/defdata Maybe
+  {:params [a]}
+  [:Nothing]
+  [:Just "値を包む" value])
 
 (def maybe-ten (adt/value Maybe :Just 10))
 
@@ -30,17 +29,16 @@ Malli や HoneySQL が示す「それはただのデータだ」という美学�
 
 ### ADT の定義
 
-`adt/data` は Haskell の `data` 宣言に近い簡潔な記法です。最初の要素が型名、続く文字列が doc、さらにオプションのマップで `:params` やその他のメタ情報を設定し、残りを `[Constructor ...fields]` という形のコンストラクタで列挙します。フィールド名はキーワード、または `'value` のように引用したシンボルで書け、自動でキーワード化されます。
+`adt/defdata` は型名を重ねて書くことなく `data` 記法で ADT を定義する糖衣です。doc 文字列・オプションマップ・コンストラクタ列は `adt/data` と同じ並びで、フィールド名は素のシンボルでも自動的に扱えます。
 
 ```clojure
-(def Tree
-  (adt/data
-    [:Tree "2 分木"
-     [:Leaf :value]
-     [:Branch {:db/tag :branch} :left :right]]))
+(adt/defdata Tree
+  "2 分木"
+  [:Leaf value]
+  [:Branch {:db/tag :branch} left right])
 ```
 
-よりリッチな制御が必要なら、従来どおり `adt/adt` にマップを渡して定義しても構いません。
+`adt/data` 関数を直接呼び出したい場合は、先頭に型名を含むシーケンスを渡してください（`[(keyword type) ...]`）。さらに細かい制御が必要なら、従来どおり `adt/adt` にマップを渡すことも可能です。
 
 ### 値とのやりとり
 

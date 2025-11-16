@@ -2,14 +2,12 @@
   "業務アプリ寄りの例: Web API のレスポンス種別を ADT で扱い、Ring 形式へ落とし込む。"
   (:require [app.adtworld :as adt]))
 
-(def HttpResult
-  (adt/data
-    [:HttpResult
-     [:Ok :body]
-     [:Created :location :body]
-     [:Redirect :location]
-     [:ClientError :status :message :details]
-     [:ServerError :status :message :info]]))
+(adt/defdata HttpResult
+  [:Ok body]
+  [:Created location body]
+  [:Redirect location]
+  [:ClientError status message details]
+  [:ServerError status message info])
 
 (defn ok [body] (adt/value HttpResult :Ok {:body body}))
 (defn created [location body] (adt/value HttpResult :Created {:location location :body body}))

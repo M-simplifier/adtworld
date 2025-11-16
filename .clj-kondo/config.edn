@@ -1,0 +1,1 @@
+{:hooks {:analyze-call {app.adtworld/defdata hooks.defdata/defdata}}}

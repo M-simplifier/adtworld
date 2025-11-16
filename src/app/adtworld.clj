@@ -239,3 +239,18 @@
     (if (fn? handler)
       (handler payload)
       handler)))
+
+(defmacro defdata
+  "型定義を `data` 記法で書き、同名の var に束縛する糖衣。
+
+  例:
+
+    (defdata Maybe
+      {:params [a]}
+      [:Nothing]
+      [:Just value])
+
+  Doc 文字列やオプションマップの並びは `data` と同じで、フィールド名のシンボルも自動で引用される。"
+  [name & spec]
+  (let [adt-form (vec (cons (keyword name) spec))]
+    `(def ~name (data '~adt-form))))
