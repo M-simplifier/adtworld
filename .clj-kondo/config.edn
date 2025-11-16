@@ -1,1 +1,4 @@
-{:hooks {:analyze-call {app.adtworld/defdata hooks.defdata/defdata}}}
+{:hooks {:analyze-call {app.adtworld/defdata hooks.defdata/defdata
+                        app.adtworld/defclass hooks.defclass/defclass
+                        app.adtworld/definstance hooks.definstance/definstance
+                        app.adtworld/mdo hooks.mdo/mdo}}}

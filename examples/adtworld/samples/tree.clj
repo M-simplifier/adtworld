@@ -59,7 +59,7 @@
   "葉に入っている数値を合計する単純な畳み込み。"
   [tree]
   (adt/match tree
-    {:Leaf (fn [{:keys [value]}] value)
+    {#_#_:Leaf (fn [{:keys [value]}] value)
      :Node (fn [{:keys [children]}]
              (reduce + 0 (map sum-leaves children)))}))
 

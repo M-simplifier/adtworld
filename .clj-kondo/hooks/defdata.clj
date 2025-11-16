@@ -1,6 +1,5 @@
 (ns hooks.defdata
-  (:require
-   [clj-kondo.hooks-api :as api]))
+  (:require [clj-kondo.hooks-api :as api]))
 
 (defn defdata
   [{:keys [node]}]

@@ -9,6 +9,26 @@
 
 (def maybe Maybe)
 
+(sut/defclass EqMaybe
+  "Maybe の等価判定。"
+  [:equals left right])
+
+(sut/definstance EqMaybe Maybe
+  {:equals (fn [x y]
+             (and (= (sut/ctor x) (sut/ctor y))
+                  (= (sut/fields x) (sut/fields y))))})
+
+(sut/defclass MonadMaybe
+  [:pure value]
+  [:bind monadic f])
+
+(sut/definstance MonadMaybe Maybe
+  {:pure (fn [x] (sut/value maybe :Just x))
+   :bind (fn [mv f]
+           (sut/match mv
+             {:Nothing mv
+              :Just (fn [{:keys [value]}] (f value))}))})
+
 (deftest adt-definition
   (testing "正規化でメタ情報が保たれる"
     (let [just (get-in maybe [:constructors :Just])]
@@ -56,3 +76,27 @@
                          [:Nothing :none]])))
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"非網羅"
                             (sut/match just [[:Nothing 0]]))))))
+
+(deftest typeclass-registry
+  (let [just (sut/value maybe :Just 1)
+        other (sut/value maybe :Just 2)
+        eq-fn (sut/operation :EqMaybe maybe :equals)]
+    (is (true? (eq-fn just (sut/value maybe :Just 1))))
+    (is (false? (eq-fn just other)))
+    (is (true? (sut/invoke :EqMaybe just :equals just just)))
+    (is (= :EqMaybe (:class (sut/resolve-instance :EqMaybe maybe))))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"インスタンスが見つかりません"
+                          (sut/resolve-instance :EqMaybe :Unknown)))))
+
+(deftest mdo-notation
+  (let [result (sut/mdo :MonadMaybe Maybe
+                        [x (sut/value maybe :Just 2)
+                         y (sut/value maybe :Just 3)]
+                        [:pair x y])
+        failure (sut/mdo :MonadMaybe Maybe
+                         [x (sut/value maybe :Nothing)
+                          y (sut/value maybe :Just 1)]
+                         [:pair x y])]
+    (is (= {:value [:pair 2 3]} (sut/fields result)))
+    (is (= :Just (sut/ctor result)))
+    (is (= :Nothing (sut/ctor failure)))))

@@ -47,6 +47,42 @@ Malli や HoneySQL が示す「それはただのデータだ」という美学�
 - `adt/type-name` `adt/ctor` `adt/fields` で値マップの各断片を取り出せます。
 - `adt/match` はデータ駆動のパターンマッチです。`{:Ctor handler}` 形式のマップ（` :else` ハンドラ任意）か、`[ctor handler]` のシーケンスを渡します。ハンドラが関数でない場合は定数として扱われ、関数ならフィールドマップが渡されます。
 
+### 型クラス風の辞書
+
+型とふるまいを分離して再利用したい場合は、Haskell の type class に似た簡易辞書を定義できます。
+
+```clojure
+(adt/defclass Monad
+  "最小限のモナド定義。"
+  [:pure value]
+  [:bind monadic f])
+
+(adt/definstance Monad Maybe
+  {:pure (fn [x] (adt/value Maybe :Just x))
+   :bind (fn [mv f]
+           (adt/match mv
+             {:Nothing mv
+              :Just (fn [{:keys [value]}] (f value))}))})
+
+(adt/invoke :Monad Maybe :bind
+            (adt/value Maybe :Just 10)
+            (fn [x] (adt/value Maybe :Just (inc x))))
+```
+
+`defclass`/`class` で型クラスの定義をデータ化し、`definstance`/`register-instance!` で特定の型に対する辞書（操作名 → 実装関数）を登録します。`invoke` と `operation` は、登録済みインスタンスから操作関数を取り出して実行するヘルパーです。
+
+#### do-notation
+
+モナド辞書が用意できれば、`adt/mdo` マクロで do 記法ライクな糖衣が使えます。束縛ベクタは `let` と同じ並びで記述し、各式はモナドの `:bind` を通って連鎖し、最後の式が `:pure` で包まれます。
+
+```clojure
+(adt/mdo :Monad Maybe
+  [first (safe-div 10 2)
+   second (safe-div first 5)]
+  [:result first second])
+;; => {:ctor :Just, ...}
+```
+
 ## サンプルコード集
 
 `examples/adtworld/samples` に複数の題材を用意しています。REPL から読み込む場合は `:samples` エイリアスを使ってください。
@@ -58,6 +94,7 @@ clojure -M:samples -m adtworld.samples.tree
 - `adtworld.samples.tree` … 汎用木構造の操作（走査・変換・畳み込み）
 - `adtworld.samples.workflow` … ヘルプデスクのチケット状態管理と遷移
 - `adtworld.samples.http` … Web API レスポンスを ADT で表し Ring 形式へ変換
+- `adtworld.samples.typeclasses` … 型クラス辞書を使って Maybe を Functor/Monad 化
 
 ## テストの実行
 

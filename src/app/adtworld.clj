@@ -1,12 +1,14 @@
 (ns app.adtworld
   "Malli や HoneySQL に通じる「ただのデータ」という美学を、そのまま ADT に適用した実験的ヘルパー。
   型定義・コンストラクタ・値はすべてプレーンな Clojure データなので、実行時に好きなように眺めたり加工できる。"
-  (:refer-clojure :exclude [match]))
+  (:refer-clojure :exclude [match class]))
 
 (def ^:private type-key ::type)
 (def ^:private ctor-key ::ctor)
 (def ^:private fields-key ::fields)
 (def ^:private not-found ::not-found)
+(def ^:private class-registry (atom {}))
+(def ^:private instance-registry (atom {}))
 
 (defn- as-keyword
   "記法の糖衣から受け取った記号をキーワードに揃える。"
@@ -152,6 +154,139 @@
                       :params params*
                       :constructors (mapv parse-constructor constructors)))))))
 
+(defn- operation-form->entry [idx form]
+  (when-not (sequential? form)
+    (throw (ex-info "型クラスの操作はベクタ/シーケンスで指定してください"
+                    {::operation form})))
+  (let [[name & tail] form
+        name* (as-keyword name "操作名")
+        [doc tail] (if (string? (first tail))
+                     [(first tail) (rest tail)]
+                     [nil tail])
+        [meta tail] (if (map? (first tail))
+                      [(first tail) (rest tail)]
+                      [nil tail])
+        params (mapv #(as-keyword % "操作パラメータ") tail)]
+    [name* {:tag name*
+            :doc doc
+            :params params
+            :index idx
+            :meta (or meta {})}]))
+
+(defn class
+  "型クラス定義を正規化する。
+
+  例:
+
+    (class
+      [:Eq \"等価性\"
+       [:equals left right]])
+
+  最初の項目が型クラス名、続いて doc、さらにオプションのマップで `:params` などを指定し、
+  残りを操作のリストとして `[op doc? {:meta ...}? & params]` の形で列挙する。"
+  [form]
+  (when-not (sequential? form)
+    (throw (ex-info "class 記法はシーケンスで与えてください" {::form form})))
+  (let [[name & tail] form
+        name* (as-keyword name "型クラス名")
+        [doc tail] (if (string? (first tail))
+                     [(first tail) (rest tail)]
+                     [nil tail])
+        [options tail] (if (map? (first tail))
+                         [(first tail) (rest tail)]
+                         [{} tail])
+        params* (mapv #(as-keyword % "型クラスの型パラメータ")
+                      (or (:params options) []))
+        ops (map-indexed operation-form->entry tail)]
+    (when (empty? ops)
+      (throw (ex-info "型クラスは少なくとも 1 つの操作を定義してください"
+                      {::class name*})))
+    (assoc options
+           ::type ::type-class
+          :name name*
+           :doc (or doc (:doc options))
+           :params params*
+           :operations (into {} ops)
+           :order (mapv first ops))))
+
+(defn register-class!
+  "型クラス定義をレジストリへ登録し、その定義を返す。"
+  [class-map]
+  (let [name (:name class-map)]
+    (ensure-keyword name "型クラス名")
+    (swap! class-registry assoc name class-map)
+    class-map))
+
+(defn class-registry-snapshot
+  "内部レジストリの状態を返す（主にデバッグ用）。"
+  []
+  @class-registry)
+
+(defn instance-registry-snapshot
+  []
+  @instance-registry)
+
+(defn- normalize-class-key [class]
+  (cond
+    (keyword? class) class
+    (symbol? class) (keyword class)
+    (map? class) (as-keyword (:name class) "型クラス名")
+    :else (throw (ex-info "型クラスはキーワード/シンボル/定義で指定してください"
+                          {::class class}))))
+
+(defn- normalize-type-key [target]
+  (cond
+    (keyword? target) target
+    (symbol? target) (keyword target)
+    (map? target) (cond
+                    (:name target) (:name target)
+                    (contains? target type-key) (type-name target)
+                    :else (throw (ex-info "型定義/値から型名を解釈できません"
+                                          {::value target})))
+    :else (throw (ex-info "型はキーワード/シンボル/値/定義で指定してください"
+                          {::value target}))))
+
+(defn register-instance!
+  "型クラスと型に対するインスタンス辞書を登録する。"
+  [{:keys [class type doc impl] :as spec}]
+  (when-not (map? impl)
+    (throw (ex-info "インスタンス定義はマップで記述してください"
+                    {::spec spec})))
+  (let [class-key (normalize-class-key class)
+        type-key (normalize-type-key type)
+        entry {:class class-key
+               :type type-key
+               :doc doc
+               :impl impl}]
+    (swap! instance-registry assoc [class-key type-key] entry)
+    entry))
+
+(defn resolve-instance
+  "登録済みの型クラスインスタンスを取得する。"
+  [class target]
+  (let [class-key (normalize-class-key class)
+        type-key (normalize-type-key target)]
+    (or (get @instance-registry [class-key type-key])
+        (throw (ex-info "インスタンスが見つかりません"
+                        {::class class-key ::type type-key})))))
+
+(defn operation
+  "型クラスインスタンスから操作関数を取り出す。"
+  [class target op]
+  (let [op* (as-keyword op "操作名")
+        instance (resolve-instance class target)
+        f (get-in instance [:impl op*])]
+    (or f
+        (throw (ex-info "指定した操作はこのインスタンスで定義されていません"
+                        {::class (:class instance)
+                         ::type (:type instance)
+                         ::operation op*})))))
+
+(defn invoke
+  "型クラスの操作を呼び出すショートカット。"
+  [class target op & args]
+  (apply (operation class target op) args))
+
 (defn value
   "ADT 定義とコンストラクタキーワードから値を生成する。
 
@@ -254,3 +389,47 @@
   [name & spec]
   (let [adt-form (vec (cons (keyword name) spec))]
     `(def ~name (data '~adt-form))))
+
+(defmacro defclass
+  "型クラス定義を `class` 記法で束縛し、同時にレジストリへ登録する。"
+  [name & spec]
+  (let [form (vec (cons name spec))]
+    `(do
+       (def ~name (class '~form))
+       (register-class! ~name))))
+
+(defmacro definstance
+  "型クラスと型に対するインスタンス辞書を登録する。"
+  [class type & body]
+  (let [[doc body] (if (string? (first body))
+                     [(first body) (rest body)]
+                     [nil body])
+        impl (first body)]
+    (when-not (map? impl)
+      (throw (IllegalArgumentException.
+              "definstance には操作名をキーに持つマップを渡してください")))
+    `(register-instance! {:class '~class
+                          :type '~type
+                          :doc ~doc
+                          :impl ~impl})))
+
+(defmacro mdo
+  "モナド辞書を使った do 記法。
+
+  (mdo :Monad Maybe
+    [x (safe-div 10 2)
+     y (safe-div x 5)]
+    [:result (+ x y)])
+
+  という形で書くと、各式が :bind を通じて連鎖し、最後の式が :pure で包まれる。"
+  [class target bindings & body]
+  (when-not (vector? bindings)
+    (throw (IllegalArgumentException. "mdo の束縛はベクタで指定してください")))
+  (when (odd? (count bindings))
+    (throw (IllegalArgumentException. "mdo の束縛ベクタは偶数個の要素が必要です")))
+  (let [pairs (partition 2 bindings)
+        result `(do ~@body)]
+    (reduce (fn [acc [sym expr]]
+              `(invoke ~class ~target :bind ~expr (fn [~sym] ~acc)))
+            `(invoke ~class ~target :pure ~result)
+            (reverse pairs))))
